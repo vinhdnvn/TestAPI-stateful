@@ -40,4 +40,9 @@ export class AuthController {
       );
     }
   }
+
+  @Post('logout-all')
+  async logoutAll(@Body() body: { userId: string }) {
+    return this.authService.logoutAll(body.userId);
+  }
 }

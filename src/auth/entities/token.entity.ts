@@ -29,4 +29,7 @@ export class RefreshTokenEntity {
 
   @Column()
   createdAt: Date;
+
+  @Column({ default: false })
+  isEvoked: boolean;
 }
