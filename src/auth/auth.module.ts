@@ -6,6 +6,8 @@ import { UserEntity } from './entities/user.entity';
 import { AccessTokenEntity, RefreshTokenEntity } from './entities/token.entity';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtAuthGuard } from './guard/jwt-auth';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ProtectedController } from './protected.controller';
 
 @Module({
   imports: [
@@ -14,15 +16,17 @@ import { JwtAuthGuard } from './guard/jwt-auth';
       AccessTokenEntity,
       RefreshTokenEntity,
     ]),
-    JwtModule.register({
-      secret: 'secretKey',
-      signOptions: {
-        expiresIn: '1h',
-      },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: configService.get<string>('JWT_EXPIRES_IN') },
+      }),
     }),
   ],
   providers: [AuthService],
-  controllers: [AuthController],
+  controllers: [AuthController, ProtectedController],
   exports: [JwtAuthGuard],
 })
 export class AuthModule {}

@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { UserEntity } from './entities/user.entity';
 import { AccessTokenEntity, RefreshTokenEntity } from './entities/token.entity';
 import * as bcrypt from 'bcryptjs';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     @InjectRepository(RefreshTokenEntity)
     private refreshTokenRepository: Repository<RefreshTokenEntity>,
     private jwtService: JwtService,
+    private configService: ConfigService,
   ) {}
 
   async register(email: string, password: string): Promise<UserEntity> {
@@ -36,7 +38,7 @@ export class AuthService {
     const accessToken = this.jwtService.sign({ userId: user.id });
     const refreshToken = this.jwtService.sign(
       { userId: user.id },
-      { expiresIn: '7d' },
+      { expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') },
     );
 
     await this.accessTokenRepository.save({
@@ -59,6 +61,14 @@ export class AuthService {
       const user = await this.userRepository.findOne({
         where: { id: payload.userId },
       });
+
+      const refreshToken = await this.refreshTokenRepository.findOne({
+        where: { user: user, token: oldRefreshToken },
+      });
+      if (refreshToken.isEvoked) {
+        throw new Error('Refresh token has been revoked');
+      }
+
       const accessToken = this.jwtService.sign({ userId: user.id });
 
       await this.accessTokenRepository.save({
@@ -69,6 +79,19 @@ export class AuthService {
       return { accessToken };
     } catch (e) {
       throw new Error('Invalid or expired refresh token');
+    }
+  }
+
+  async revokeRefreshToken(refreshToken: string) {
+    const token = await this.refreshTokenRepository.findOne({
+      where: { token: refreshToken },
+    });
+    if (token) {
+      token.isEvoked = true;
+      await this.refreshTokenRepository.save(token);
+      return { message: 'Refresh token revoked successfully' };
+    } else {
+      throw new Error('Refresh token not found');
     }
   }
 
